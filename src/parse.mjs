@@ -47,7 +47,9 @@ function toRecord(spec, test, describePath, file) {
   const status = STATUS_FROM_PLAYWRIGHT[test.status] ?? deriveStatus(test);
   const project = test.projectName ?? test.projectId ?? 'default';
   return {
-    id: `${spec.id ?? `${file}:${spec.line ?? 0}`}:${project}`,
+    // Identidade estável entre execuções (é o que o histórico usa para seguir o teste):
+    // arquivo + describes + título + projeto. Não usa spec.id nem a linha, que mudam.
+    id: [file, ...describePath, spec.title, project].join('::'),
     title: String(spec.title ?? '(sem título)'),
     suite: describePath.join(' › '),
     file,

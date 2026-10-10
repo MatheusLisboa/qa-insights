@@ -92,6 +92,19 @@ describe('parseReport', () => {
     assert.equal(new Set(ids).size, 2);
   });
 
+  it('a identidade do teste não muda entre execuções, mesmo que spec.id e a linha mudem', () => {
+    const run1 = parseReport(report([passing('mesmo teste', 100, { id: 'hash-da-execucao-1', line: 10 })]));
+    const run2 = parseReport(report([passing('mesmo teste', 100, { id: 'hash-da-execucao-2', line: 55 })]));
+    assert.equal(run1.tests[0].id, run2.tests[0].id);
+  });
+
+  it('a identidade diferencia arquivo, describe, título e projeto', () => {
+    const a = parseReport(report({ 'a.spec.ts': [passing('t')], 'b.spec.ts': [passing('t')] })).tests.map((t) => t.id);
+    assert.equal(new Set(a).size, 2, 'mesmo título em arquivos diferentes');
+    const p = parseReport(report([passing('t', 100, { project: 'x' }), passing('t', 100, { project: 'y' })])).tests.map((t) => t.id);
+    assert.equal(new Set(p).size, 2, 'mesmo título em projetos diferentes');
+  });
+
   it('aceita um relatório sem testes', () => {
     const { tests } = parseReport({ suites: [] });
     assert.deepEqual(tests, []);
