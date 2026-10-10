@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QA Insights</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --series-1: #2a78d6; --track: #eceae4;
+  --good: #0ca30c; --warning: #fab219; --critical: #d03b3b; --skipped: #898781;
+  --on-good: #0b0b0b; --on-warning: #0b0b0b; --on-critical: #ffffff; --on-skipped: #0b0b0b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --series-1: #3987e5; --track: #262624;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --series-1: #3987e5; --track: #262624;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1080px; margin: 0 auto; padding: 24px 16px 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 16px; margin: 0 0 4px; }
+p { margin: 0; }
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.meta, .sub, .row-sub, figcaption p, .tile-hint, .count { color: var(--ink-2); font-size: 13px; }
+.note { border: 1px solid var(--border); border-left: 4px solid var(--series-1); background: var(--surface); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--ink-2); }
+button, input { font: inherit; color: inherit; }
+.theme { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin: 0; }
+.hero { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 24px; }
+.hero-value { font-size: 56px; font-weight: 650; line-height: 1.05; }
+.hero-label { font-size: 13px; color: var(--ink-2); }
+.hero-text { color: var(--ink-2); max-width: 46ch; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
+.tile { border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.tile-label { font-size: 13px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+.tile-value { font-size: 26px; font-weight: 600; margin-top: 2px; }
+.dot { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; font-size: 11px; font-weight: 700; line-height: 1; flex: none; }
+.dot.s-passed { background: var(--good); color: var(--on-good); }
+.dot.s-flaky { background: var(--warning); color: var(--on-warning); }
+.dot.s-failed { background: var(--critical); color: var(--on-critical); }
+.dot.s-skipped { background: var(--skipped); color: var(--on-skipped); }
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; }
+.rows { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) 4.5rem; align-items: center; gap: 4px 12px; }
+.row-label { display: grid; min-width: 0; grid-column: 1 / -1; }
+.row-title { display: flex; align-items: center; gap: 6px; overflow-wrap: anywhere; }
+.row-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-value { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+.track { height: 16px; display: flex; align-items: center; }
+.bar { height: 16px; background: var(--series-1); border-radius: 0 4px 4px 0; }
+.stack { height: 16px; display: flex; gap: 2px; }
+.seg { min-width: 4px; }
+.seg:first-child { border-radius: 0; }
+.seg:last-child { border-radius: 0 4px 4px 0; }
+.seg.s-passed { background: var(--good); } .seg.s-flaky { background: var(--warning); }
+.seg.s-failed { background: var(--critical); } .seg.s-skipped { background: var(--skipped); }
+.bar:hover, .seg:hover { filter: brightness(1.15); }
+.bar:focus-visible, .seg:focus-visible, .chip:focus-visible, input:focus-visible, .theme:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 0; margin: 10px 0 0; font-size: 13px; }
+.legend li { display: flex; align-items: center; gap: 6px; }
+.swatch { width: 12px; height: 12px; border-radius: 2px; }
+.swatch.s-passed { background: var(--good); } .swatch.s-flaky { background: var(--warning); }
+.swatch.s-failed { background: var(--critical); } .swatch.s-skipped { background: var(--skipped); }
+.problems { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.problem { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: grid; gap: 4px; }
+.problem-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.err { margin: 4px 0 0; padding: 8px 10px; border-radius: 6px; background: var(--track); font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.empty { color: var(--ink-2); margin-top: 8px; }
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 12px 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--border); background: transparent; border-radius: 999px; padding: 4px 12px; cursor: pointer; font-size: 13px; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+input[type="search"] { border: 1px solid var(--border); background: transparent; border-radius: 8px; padding: 6px 10px; min-width: 240px; flex: 1 1 240px; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { font-size: 12px; color: var(--ink-2); font-weight: 600; }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mono { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink-2); }
+tr[hidden] { display: none; }
+footer { color: var(--muted); font-size: 12px; }
+#tip { position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: var(--surface); border-radius: 8px; padding: 8px 10px; font-size: 12px; max-width: 320px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+#tip .v { font-size: 15px; font-weight: 650; }
+#tip .l { opacity: 0.85; overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  .grid-2 { grid-template-columns: 1fr; }
+  .hero-value { font-size: 48px; }
+}
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div><h1>QA Insights</h1><p class="meta">Origem: playwright-report.json · Execução: 08/10/2026 14:00 UTC</p></div>
+    <button type="button" class="theme" id="theme">Alternar tema</button>
+  </div>
+  <p class="note" role="note">Dados sintéticos de demonstração: o relatório de exemplo foi gerado por scripts/make-sample.mjs e não vem de um sistema real.</p>
+  <section class="card">
+  <div class="hero">
+    <div><div class="hero-value">92,5%</div><div class="hero-label">Taxa de sucesso</div></div>
+    <p class="hero-text">37 de 40 testes executados terminaram verdes, 3 só após retry. Na primeira tentativa, a taxa foi de 85,0%.</p>
+  </div>
+  <div class="tiles">
+    <div class="tile"><div class="tile-label">Executados</div><div class="tile-value">40</div><div class="tile-hint">de 42 no total</div></div>
+    <div class="tile"><div class="tile-label"><span class="dot s-failed" aria-hidden="true">✕</span>Falharam</div><div class="tile-value">3</div></div>
+    <div class="tile"><div class="tile-label"><span class="dot s-flaky" aria-hidden="true">!</span>Flaky</div><div class="tile-value">3</div><div class="tile-hint">passaram após retry</div></div>
+    <div class="tile"><div class="tile-label"><span class="dot s-skipped" aria-hidden="true">–</span>Ignorados</div><div class="tile-value">2</div></div>
+    <div class="tile"><div class="tile-label">Duração da execução</div><div class="tile-value">53,5 s</div><div class="tile-hint">média por teste 3,0 s</div></div>
+    <div class="tile"><div class="tile-label">p95 por teste</div><div class="tile-value">7,2 s</div><div class="tile-hint">mediana 2,1 s</div></div>
+  </div>
+</section>
+<div class="grid-2">
+<figure class="card">
+  <figcaption><h2>Testes mais lentos</h2><p>Duração da última tentativa de cada teste. Os 10 maiores valores.</p></figcaption>
+  <ol class="rows"><li class="row">
+  <div class="row-label"><span class="row-title" title="emite confirmação por e-mail"><span class="dot s-failed" aria-hidden="true">✕</span>emite confirmação por e-mail</span><span class="row-sub">Checkout</span></div>
+  <div class="track"><div class="bar" tabindex="0" style="width:100.00%" data-tip="30,0 s
+emite confirmação por e-mail
+Checkout · 3 tentativas · Falhou" aria-label="emite confirmação por e-mail: 30,0 s"></div></div>
+  <div class="row-value">30,0 s</div>
+</li>
+<li class="row">
+  <div class="row-label"><span class="row-title" title="finaliza a compra com cartão válido">finaliza a compra com cartão válido</span><span class="row-sub">Checkout</span></div>
+  <div class="track"><div class="bar" tabindex="0" style="width:32.51%" data-tip="9,8 s
+finaliza a compra com cartão válido
+Checkout · 1 tentativa · Passou" aria-label="finaliza a compra com cartão válido: 9,8 s"></div></div>
+  <div class="row-value">9,8 s</div>
+</li>
+<li class="row">
+  <div class="row-label"><span class="row-title" title="recusa cartão sem saldo">recusa cartão sem saldo</span><span class="row-sub">Checkout</span></div>
+  <div class="track"><div class="bar" tabindex="0" style="width:23.92%" data-tip="7,2 s
+recusa cartão sem saldo
+Checkout · 1 tentativa · Passou" aria-label="recusa cartão sem saldo: 7,2 s"></div></div>
+  <div class="row-value">7,2 s</div>
+</li>
+<li class="row">
+  <div class="row-label"><span class="row-title" title="finaliza a compra com Pix">finaliza a compra com Pix</span><span class="row-sub">Checkout</span></div>
+  <div class="track"><div class="bar" tabindex="0" style="width:20.10%" data-tip="6,0 s
+finaliza a compra com Pix
+Checkout · 1 tentativa · Passou" aria-label="finaliza a compra com Pix: 6,0 s"></div></div>
+  <div class="row-value">6,0 s</div>
+</li>
+<li class="row">
+  <div class="row-label"><span class="row-title" title="bloqueia a conta após 5 tentativas falhas">bloqueia a conta após 5 tentativas falhas</span><span class="row-sub">Login</span></div>
+  <div class="track"><div class="bar" tabindex="0" style="width:15.21%" data-tip="4,6 s
+bloqueia a conta após 5 tentativas falhas
+Login · 1 tentativa · Passou" aria-label="bloqueia a conta após 5 tentativas falhas: 4,6 s"></div></div>
+  <div class="row-value">4,6 s</div>
+</li>
+<li class="row">
+  <div class="row-label"><span class="row-title" title="sugere termos ao digitar (autocomplete)"><span class="dot s-flaky" aria-hidden="true">!</span>sugere termos ao digitar (autocomplete)</span><span class="row-sub">Busca</span></div>
+  <div class="track"><div class="bar" tabindex="0" style="width:13.24%" data-tip="4,0 s
+sugere termos ao digitar (autocomplete)
+Busca · 2 tentativas · Flaky" aria-label="sugere termos ao digitar (autocomplete): 4,0 s"></div></div>
+  <div class="row-value">4,0 s</div>
+</li>
+<li class="row">
+  <div class="row-label"><span class="row-title" title="calcula o frete por CEP"><span class="dot s-flaky" aria-hidden="true">!</span>calcula o frete por CEP</span><span class="row-sub">Checkout</span></div>
+  <div class="track"><div class="bar" tabindex="0" style="width:13.06%" data-tip="3,9 s
+calcula o frete por CEP
+Checkout · 2 tentativas · Flaky" aria-label="calcula o frete por CEP: 3,9 s"></div></div>
+  <div class="row-value">3,9 s</div>
+</li>
+<li class="row">
+  <div class="row-label"><span class="row-title" title="lista o histórico de pedidos">lista o histórico de pedidos</span><span class="row-sub">Perfil</span></div>
+  <div class="track"><div class="bar" tabindex="0" style="width:12.50%" data-tip="3,8 s
+lista o histórico de pedidos
+Perfil · 1 tentativa · Passou" aria-label="lista o histórico de pedidos: 3,8 s"></div></div>
+  <div class="row-value">3,8 s</div>
+</li>
+<li class="row">
+  <div class="row-label"><span class="row-title" title="persiste o carrinho após recarregar a página">persiste o carrinho após recarregar a página</span><span class="row-sub">Carrinho</span></div>
+  <div class="track"><div class="bar" tabindex="0" style="width:10.09%" data-tip="3,0 s
+persiste o carrinho após recarregar a página
+Carrinho · 1 tentativa · Passou" aria-label="persiste o carrinho após recarregar a página: 3,0 s"></div></div>
+  <div class="row-value">3,0 s</div>
+</li>
+<li class="row">
+  <div class="row-label"><span class="row-title" title="filtra por faixa de preço">filtra por faixa de preço</span><span class="row-sub">Busca</span></div>
+  <div class="track"><div class="bar" tabindex="0" style="width:9.92%" data-tip="3,0 s
+filtra por faixa de preço
+Busca · 1 tentativa · Passou" aria-label="filtra por faixa de preço: 3,0 s"></div></div>
+  <div class="row-value">3,0 s</div>
+</li></ol>
+</figure>
+<figure class="card">
+  <figcaption><h2>Resultado por suíte</h2><p>Uma barra por arquivo de teste, da pior taxa de sucesso para a melhor. O valor à direita é a taxa de sucesso.</p></figcaption>
+  <ul class="legend" aria-label="Legenda"><li><span class="swatch s-passed"></span><span class="dot s-passed" aria-hidden="true">✓</span>Passaram</li><li><span class="swatch s-flaky"></span><span class="dot s-flaky" aria-hidden="true">!</span>Flaky</li><li><span class="swatch s-failed"></span><span class="dot s-failed" aria-hidden="true">✕</span>Falharam</li><li><span class="swatch s-skipped"></span><span class="dot s-skipped" aria-hidden="true">–</span>Ignorados</li></ul>
+  <ol class="rows"><li class="row">
+  <div class="row-label"><span class="row-title" title="cart/cart.spec.ts">cart/cart.spec.ts</span><span class="row-sub">6 testes</span></div>
+  <div class="track"><div class="stack" style="width:66.67%"><div class="seg s-passed" tabindex="0" style="flex:5 0 0" data-tip="5 de 6 testes
+Passaram
+cart/cart.spec.ts" aria-label="cart/cart.spec.ts: 5 passaram"></div><div class="seg s-failed" tabindex="0" style="flex:1 0 0" data-tip="1 de 6 testes
+Falharam
+cart/cart.spec.ts" aria-label="cart/cart.spec.ts: 1 falharam"></div></div></div>
+  <div class="row-value">83,3%</div>
+</li>
+<li class="row">
+  <div class="row-label"><span class="row-title" title="checkout/checkout.spec.ts">checkout/checkout.spec.ts</span><span class="row-sub">7 testes</span></div>
+  <div class="track"><div class="stack" style="width:77.78%"><div class="seg s-passed" tabindex="0" style="flex:5 0 0" data-tip="5 de 7 testes
+Passaram
+checkout/checkout.spec.ts" aria-label="checkout/checkout.spec.ts: 5 passaram"></div><div class="seg s-flaky" tabindex="0" style="flex:1 0 0" data-tip="1 de 7 testes
+Flaky
+checkout/checkout.spec.ts" aria-label="checkout/checkout.spec.ts: 1 flaky"></div><div class="seg s-failed" tabindex="0" style="flex:1 0 0" data-tip="1 de 7 testes
+Falharam
+checkout/checkout.spec.ts" aria-label="checkout/checkout.spec.ts: 1 falharam"></div></div></div>
+  <div class="row-value">85,7%</div>
+</li>
+<li class="row">
+  <div class="row-label"><span class="row-title" title="api/orders.spec.ts">api/orders.spec.ts</span><span class="row-sub">8 testes</span></div>
+  <div class="track"><div class="stack" style="width:88.89%"><div class="seg s-passed" tabindex="0" style="flex:7 0 0" data-tip="7 de 8 testes
+Passaram
+api/orders.spec.ts" aria-label="api/orders.spec.ts: 7 passaram"></div><div class="seg s-failed" tabindex="0" style="flex:1 0 0" data-tip="1 de 8 testes
+Falharam
+api/orders.spec.ts" aria-label="api/orders.spec.ts: 1 falharam"></div></div></div>
+  <div class="row-value">87,5%</div>
+</li>
+<li class="row">
+  <div class="row-label"><span class="row-title" title="account/profile.spec.ts">account/profile.spec.ts</span><span class="row-sub">6 testes</span></div>
+  <div class="track"><div class="stack" style="width:66.67%"><div class="seg s-passed" tabindex="0" style="flex:5 0 0" data-tip="5 de 6 testes
+Passaram
+account/profile.spec.ts" aria-label="account/profile.spec.ts: 5 passaram"></div><div class="seg s-skipped" tabindex="0" style="flex:1 0 0" data-tip="1 de 6 testes
+Ignorados
+account/profile.spec.ts" aria-label="account/profile.spec.ts: 1 ignorados"></div></div></div>
+  <div class="row-value">100,0%</div>
+</li>
+<li class="row">
+  <div class="row-label"><span class="row-title" title="auth/login.spec.ts">auth/login.spec.ts</span><span class="row-sub">6 testes</span></div>
+  <div class="track"><div class="stack" style="width:66.67%"><div class="seg s-passed" tabindex="0" style="flex:5 0 0" data-tip="5 de 6 testes
+Passaram
+auth/login.spec.ts" aria-label="auth/login.spec.ts: 5 passaram"></div><div class="seg s-flaky" tabindex="0" style="flex:1 0 0" data-tip="1 de 6 testes
+Flaky
+auth/login.spec.ts" aria-label="auth/login.spec.ts: 1 flaky"></div></div></div>
+  <div class="row-value">100,0%</div>
+</li>
+<li class="row">
+  <div class="row-label"><span class="row-title" title="catalog/search.spec.ts">catalog/search.spec.ts</span><span class="row-sub">9 testes</span></div>
+  <div class="track"><div class="stack" style="width:100.00%"><div class="seg s-passed" tabindex="0" style="flex:7 0 0" data-tip="7 de 9 testes
+Passaram
+catalog/search.spec.ts" aria-label="catalog/search.spec.ts: 7 passaram"></div><div class="seg s-flaky" tabindex="0" style="flex:1 0 0" data-tip="1 de 9 testes
+Flaky
+catalog/search.spec.ts" aria-label="catalog/search.spec.ts: 1 flaky"></div><div class="seg s-skipped" tabindex="0" style="flex:1 0 0" data-tip="1 de 9 testes
+Ignorados
+catalog/search.spec.ts" aria-label="catalog/search.spec.ts: 1 ignorados"></div></div></div>
+  <div class="row-value">100,0%</div>
+</li></ol>
+</figure>
+</div>
+<section class="card">
+  <h2>Falhas e testes instáveis</h2>
+  <p class="sub">Flaky = falhou e depois passou em um retry. Falhou = esgotou todas as tentativas.</p>
+  <ul class="problems"><li class="problem">
+  <div class="problem-head"><span class="badge"><span class="dot s-failed" aria-hidden="true">✕</span>Falhou</span><strong>aplica cupom válido</strong></div>
+  <div class="row-sub">cart/cart.spec.ts:34 · chromium · 3 tentativas</div>
+  <pre class="err">expect(locator).toHaveText(expected) failed</pre>
+</li>
+<li class="problem">
+  <div class="problem-head"><span class="badge"><span class="dot s-failed" aria-hidden="true">✕</span>Falhou</span><strong>emite confirmação por e-mail</strong></div>
+  <div class="row-sub">checkout/checkout.spec.ts:55 · chromium · 3 tentativas</div>
+  <pre class="err">Test timeout of 30000ms exceeded.</pre>
+</li>
+<li class="problem">
+  <div class="problem-head"><span class="badge"><span class="dot s-failed" aria-hidden="true">✕</span>Falhou</span><strong>GET /orders/:id de outro usuário retorna 403</strong></div>
+  <div class="row-sub">api/orders.spec.ts:62 · api · 3 tentativas</div>
+  <pre class="err">Error: expect(received).toBe(expected)</pre>
+</li>
+<li class="problem">
+  <div class="problem-head"><span class="badge"><span class="dot s-flaky" aria-hidden="true">!</span>Flaky</span><strong>envia e-mail de recuperação de senha</strong></div>
+  <div class="row-sub">auth/login.spec.ts:34 · chromium · 2 tentativas</div>
+  <pre class="err">Timeout 5000ms exceeded while waiting for locator(&#39;[data-testid=toast-success]&#39;)</pre>
+</li>
+<li class="problem">
+  <div class="problem-head"><span class="badge"><span class="dot s-flaky" aria-hidden="true">!</span>Flaky</span><strong>sugere termos ao digitar (autocomplete)</strong></div>
+  <div class="row-sub">catalog/search.spec.ts:48 · chromium · 2 tentativas</div>
+  <pre class="err">expect(locator).toBeVisible() failed: locator(&#39;[role=listbox]&#39;) not found</pre>
+</li>
+<li class="problem">
+  <div class="problem-head"><span class="badge"><span class="dot s-flaky" aria-hidden="true">!</span>Flaky</span><strong>calcula o frete por CEP</strong></div>
+  <div class="row-sub">checkout/checkout.spec.ts:27 · chromium · 2 tentativas</div>
+  <pre class="err">Timeout 5000ms exceeded while waiting for response &#39;**/api/shipping*&#39;</pre>
+</li></ul>
+</section>
+<section class="card" id="tests">
+  <h2>Todos os testes</h2>
+  <div class="filters">
+    <div class="chips" role="group" aria-label="Filtrar por status"><button type="button" class="chip" data-filter="all" aria-pressed="true">Todos</button><button type="button" class="chip" data-filter="passed" aria-pressed="false">Passaram</button><button type="button" class="chip" data-filter="flaky" aria-pressed="false">Flaky</button><button type="button" class="chip" data-filter="failed" aria-pressed="false">Falharam</button><button type="button" class="chip" data-filter="skipped" aria-pressed="false">Ignorados</button></div>
+    <input type="search" id="q" placeholder="Buscar por título, suíte ou arquivo" aria-label="Buscar testes">
+    <span class="count" id="count" aria-live="polite"></span>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Status</th><th>Teste</th><th>Arquivo</th><th>Projeto</th><th class="num">Duração</th><th class="num">Tentativas</th></tr></thead>
+    <tbody><tr data-status="passed" data-text="permite login com credenciais válidas login auth/login.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>permite login com credenciais válidas</div><div class="row-sub">Login</div></td>
+  <td class="mono">auth/login.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">2,1 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="exibe erro com senha inválida login auth/login.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>exibe erro com senha inválida</div><div class="row-sub">Login</div></td>
+  <td class="mono">auth/login.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">1,2 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="bloqueia a conta após 5 tentativas falhas login auth/login.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>bloqueia a conta após 5 tentativas falhas</div><div class="row-sub">Login</div></td>
+  <td class="mono">auth/login.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">4,6 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="flaky" data-text="envia e-mail de recuperação de senha login auth/login.spec.ts chromium flaky">
+  <td><span class="badge"><span class="dot s-flaky" aria-hidden="true">!</span>Flaky</span></td>
+  <td><div>envia e-mail de recuperação de senha</div><div class="row-sub">Login</div></td>
+  <td class="mono">auth/login.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">2,5 s</td>
+  <td class="num">2</td>
+</tr>
+<tr data-status="passed" data-text="encerra a sessão ao fazer logout login auth/login.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>encerra a sessão ao fazer logout</div><div class="row-sub">Login</div></td>
+  <td class="mono">auth/login.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">1,5 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="mantém a sessão com &quot;lembrar de mim&quot; login auth/login.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>mantém a sessão com &quot;lembrar de mim&quot;</div><div class="row-sub">Login</div></td>
+  <td class="mono">auth/login.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">2,0 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="retorna resultados para termo existente busca catalog/search.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>retorna resultados para termo existente</div><div class="row-sub">Busca</div></td>
+  <td class="mono">catalog/search.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">1,9 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="mostra estado vazio para termo inexistente busca catalog/search.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>mostra estado vazio para termo inexistente</div><div class="row-sub">Busca</div></td>
+  <td class="mono">catalog/search.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">1,1 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="filtra por faixa de preço busca catalog/search.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>filtra por faixa de preço</div><div class="row-sub">Busca</div></td>
+  <td class="mono">catalog/search.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">3,0 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="ordena por menor preço busca catalog/search.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>ordena por menor preço</div><div class="row-sub">Busca</div></td>
+  <td class="mono">catalog/search.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">2,5 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="pagina os resultados busca catalog/search.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>pagina os resultados</div><div class="row-sub">Busca</div></td>
+  <td class="mono">catalog/search.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">2,8 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="flaky" data-text="sugere termos ao digitar (autocomplete) busca catalog/search.spec.ts chromium flaky">
+  <td><span class="badge"><span class="dot s-flaky" aria-hidden="true">!</span>Flaky</span></td>
+  <td><div>sugere termos ao digitar (autocomplete)</div><div class="row-sub">Busca</div></td>
+  <td class="mono">catalog/search.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">4,0 s</td>
+  <td class="num">2</td>
+</tr>
+<tr data-status="passed" data-text="exibe a galeria de imagens página de produto catalog/search.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>exibe a galeria de imagens</div><div class="row-sub">Página de produto</div></td>
+  <td class="mono">catalog/search.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">2,2 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="seleciona a variação de tamanho página de produto catalog/search.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>seleciona a variação de tamanho</div><div class="row-sub">Página de produto</div></td>
+  <td class="mono">catalog/search.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">1,5 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="skipped" data-text="mostra aviso de estoque baixo página de produto catalog/search.spec.ts chromium ignorado">
+  <td><span class="badge"><span class="dot s-skipped" aria-hidden="true">–</span>Ignorado</span></td>
+  <td><div>mostra aviso de estoque baixo</div><div class="row-sub">Página de produto</div></td>
+  <td class="mono">catalog/search.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">–</td>
+  <td class="num">–</td>
+</tr>
+<tr data-status="passed" data-text="adiciona produto ao carrinho carrinho cart/cart.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>adiciona produto ao carrinho</div><div class="row-sub">Carrinho</div></td>
+  <td class="mono">cart/cart.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">1,5 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="atualiza quantidade e total carrinho cart/cart.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>atualiza quantidade e total</div><div class="row-sub">Carrinho</div></td>
+  <td class="mono">cart/cart.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">2,0 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="remove item do carrinho carrinho cart/cart.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>remove item do carrinho</div><div class="row-sub">Carrinho</div></td>
+  <td class="mono">cart/cart.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">1,2 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="failed" data-text="aplica cupom válido carrinho cart/cart.spec.ts chromium falhou">
+  <td><span class="badge"><span class="dot s-failed" aria-hidden="true">✕</span>Falhou</span></td>
+  <td><div>aplica cupom válido</div><div class="row-sub">Carrinho</div></td>
+  <td class="mono">cart/cart.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">2,4 s</td>
+  <td class="num">3</td>
+</tr>
+<tr data-status="passed" data-text="rejeita cupom expirado carrinho cart/cart.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>rejeita cupom expirado</div><div class="row-sub">Carrinho</div></td>
+  <td class="mono">cart/cart.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">2,0 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="persiste o carrinho após recarregar a página carrinho cart/cart.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>persiste o carrinho após recarregar a página</div><div class="row-sub">Carrinho</div></td>
+  <td class="mono">cart/cart.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">3,0 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="finaliza a compra com cartão válido checkout checkout/checkout.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>finaliza a compra com cartão válido</div><div class="row-sub">Checkout</div></td>
+  <td class="mono">checkout/checkout.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">9,8 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="recusa cartão sem saldo checkout checkout/checkout.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>recusa cartão sem saldo</div><div class="row-sub">Checkout</div></td>
+  <td class="mono">checkout/checkout.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">7,2 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="flaky" data-text="calcula o frete por cep checkout checkout/checkout.spec.ts chromium flaky">
+  <td><span class="badge"><span class="dot s-flaky" aria-hidden="true">!</span>Flaky</span></td>
+  <td><div>calcula o frete por CEP</div><div class="row-sub">Checkout</div></td>
+  <td class="mono">checkout/checkout.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">3,9 s</td>
+  <td class="num">2</td>
+</tr>
+<tr data-status="passed" data-text="finaliza a compra com pix checkout checkout/checkout.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>finaliza a compra com Pix</div><div class="row-sub">Checkout</div></td>
+  <td class="mono">checkout/checkout.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">6,0 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="valida campos obrigatórios do endereço checkout checkout/checkout.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>valida campos obrigatórios do endereço</div><div class="row-sub">Checkout</div></td>
+  <td class="mono">checkout/checkout.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">2,4 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="exibe o resumo do pedido antes de pagar checkout checkout/checkout.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>exibe o resumo do pedido antes de pagar</div><div class="row-sub">Checkout</div></td>
+  <td class="mono">checkout/checkout.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">2,1 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="failed" data-text="emite confirmação por e-mail checkout checkout/checkout.spec.ts chromium falhou">
+  <td><span class="badge"><span class="dot s-failed" aria-hidden="true">✕</span>Falhou</span></td>
+  <td><div>emite confirmação por e-mail</div><div class="row-sub">Checkout</div></td>
+  <td class="mono">checkout/checkout.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">30,0 s</td>
+  <td class="num">3</td>
+</tr>
+<tr data-status="passed" data-text="atualiza dados pessoais perfil account/profile.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>atualiza dados pessoais</div><div class="row-sub">Perfil</div></td>
+  <td class="mono">account/profile.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">2,3 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="altera a senha perfil account/profile.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>altera a senha</div><div class="row-sub">Perfil</div></td>
+  <td class="mono">account/profile.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">2,6 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="adiciona novo endereço perfil account/profile.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>adiciona novo endereço</div><div class="row-sub">Perfil</div></td>
+  <td class="mono">account/profile.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">2,5 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="exclui endereço perfil account/profile.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>exclui endereço</div><div class="row-sub">Perfil</div></td>
+  <td class="mono">account/profile.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">2,0 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="lista o histórico de pedidos perfil account/profile.spec.ts chromium passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>lista o histórico de pedidos</div><div class="row-sub">Perfil</div></td>
+  <td class="mono">account/profile.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">3,8 s</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="skipped" data-text="baixa a nota fiscal em pdf perfil account/profile.spec.ts chromium ignorado">
+  <td><span class="badge"><span class="dot s-skipped" aria-hidden="true">–</span>Ignorado</span></td>
+  <td><div>baixa a nota fiscal em PDF</div><div class="row-sub">Perfil</div></td>
+  <td class="mono">account/profile.spec.ts</td>
+  <td>chromium</td>
+  <td class="num">–</td>
+  <td class="num">–</td>
+</tr>
+<tr data-status="passed" data-text="post /orders cria um pedido api de pedidos api/orders.spec.ts api passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>POST /orders cria um pedido</div><div class="row-sub">API de pedidos</div></td>
+  <td class="mono">api/orders.spec.ts</td>
+  <td>api</td>
+  <td class="num">348 ms</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="post /orders sem itens retorna 422 api de pedidos api/orders.spec.ts api passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>POST /orders sem itens retorna 422</div><div class="row-sub">API de pedidos</div></td>
+  <td class="mono">api/orders.spec.ts</td>
+  <td>api</td>
+  <td class="num">240 ms</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="get /orders/:id retorna o pedido api de pedidos api/orders.spec.ts api passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>GET /orders/:id retorna o pedido</div><div class="row-sub">API de pedidos</div></td>
+  <td class="mono">api/orders.spec.ts</td>
+  <td>api</td>
+  <td class="num">149 ms</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="get /orders/:id inexistente retorna 404 api de pedidos api/orders.spec.ts api passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>GET /orders/:id inexistente retorna 404</div><div class="row-sub">API de pedidos</div></td>
+  <td class="mono">api/orders.spec.ts</td>
+  <td>api</td>
+  <td class="num">142 ms</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="patch /orders/:id/cancel cancela o pedido api de pedidos api/orders.spec.ts api passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>PATCH /orders/:id/cancel cancela o pedido</div><div class="row-sub">API de pedidos</div></td>
+  <td class="mono">api/orders.spec.ts</td>
+  <td>api</td>
+  <td class="num">222 ms</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="get /orders pagina a listagem api de pedidos api/orders.spec.ts api passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>GET /orders pagina a listagem</div><div class="row-sub">API de pedidos</div></td>
+  <td class="mono">api/orders.spec.ts</td>
+  <td>api</td>
+  <td class="num">399 ms</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="passed" data-text="post /orders exige autenticação api de pedidos api/orders.spec.ts api passou">
+  <td><span class="badge"><span class="dot s-passed" aria-hidden="true">✓</span>Passou</span></td>
+  <td><div>POST /orders exige autenticação</div><div class="row-sub">API de pedidos</div></td>
+  <td class="mono">api/orders.spec.ts</td>
+  <td>api</td>
+  <td class="num">134 ms</td>
+  <td class="num">1</td>
+</tr>
+<tr data-status="failed" data-text="get /orders/:id de outro usuário retorna 403 api de pedidos api/orders.spec.ts api falhou">
+  <td><span class="badge"><span class="dot s-failed" aria-hidden="true">✕</span>Falhou</span></td>
+  <td><div>GET /orders/:id de outro usuário retorna 403</div><div class="row-sub">API de pedidos</div></td>
+  <td class="mono">api/orders.spec.ts</td>
+  <td>api</td>
+  <td class="num">200 ms</td>
+  <td class="num">3</td>
+</tr></tbody>
+  </table></div>
+</section>
+  <footer>Gerado por qa-insights a partir de um relatório JSON do Playwright.</footer>
+</main>
+<div id="tip" role="tooltip" hidden></div>
+<script>
+(function () {
+  var root = document.documentElement;
+  var mq = window.matchMedia('(prefers-color-scheme: dark)');
+  try { var saved = localStorage.getItem('qa-insights-theme'); if (saved) root.dataset.theme = saved; } catch (e) {}
+  document.getElementById('theme').addEventListener('click', function () {
+    var now = root.dataset.theme || (mq.matches ? 'dark' : 'light');
+    var next = now === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next;
+    try { localStorage.setItem('qa-insights-theme', next); } catch (e) {}
+  });
+
+  var tip = document.getElementById('tip');
+  function show(el, x, y) {
+    var lines = el.dataset.tip.split('\n');
+    tip.replaceChildren();
+    lines.forEach(function (line, i) {
+      var d = document.createElement('div');
+      d.className = i === 0 ? 'v' : 'l';
+      d.textContent = line;
+      tip.appendChild(d);
+    });
+    tip.hidden = false;
+    var left = Math.min(x + 12, window.innerWidth - tip.offsetWidth - 8);
+    tip.style.left = Math.max(8, left) + 'px';
+    tip.style.top = (y + 16) + 'px';
+  }
+  function hide() { tip.hidden = true; }
+  document.addEventListener('pointermove', function (e) {
+    var el = e.target.closest && e.target.closest('[data-tip]');
+    if (el) show(el, e.clientX, e.clientY); else hide();
+  });
+  document.addEventListener('focusin', function (e) {
+    var el = e.target.closest && e.target.closest('[data-tip]');
+    if (!el) return;
+    var r = el.getBoundingClientRect();
+    show(el, r.left, r.bottom - 12);
+  });
+  document.addEventListener('focusout', hide);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(); });
+
+  var rows = Array.prototype.slice.call(document.querySelectorAll('#tests tbody tr'));
+  var count = document.getElementById('count');
+  var q = document.getElementById('q');
+  var chips = Array.prototype.slice.call(document.querySelectorAll('.chip'));
+  var status = 'all';
+  function apply() {
+    var term = q.value.trim().toLowerCase();
+    var n = 0;
+    rows.forEach(function (r) {
+      var ok = (status === 'all' || r.dataset.status === status) && r.dataset.text.indexOf(term) !== -1;
+      r.hidden = !ok;
+      if (ok) n += 1;
+    });
+    count.textContent = 'Mostrando ' + n + ' de ' + rows.length;
+  }
+  chips.forEach(function (c) {
+    c.addEventListener('click', function () {
+      status = c.dataset.filter;
+      chips.forEach(function (o) { o.setAttribute('aria-pressed', String(o === c)); });
+      apply();
+    });
+  });
+  q.addEventListener('input', apply);
+  apply();
+})();
+</script>
+</body>
+</html>
