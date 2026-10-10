@@ -9,6 +9,7 @@ import { parseArgs } from 'node:util';
 import { computeFlakiness } from './flakiness.mjs';
 import { HistoryFormatError, loadHistory, runIdFor, toRunRecord, writeRun } from './history.mjs';
 import { computeMetrics } from './metrics.mjs';
+import { computeTrends } from './trends.mjs';
 import { parseReport, ReportFormatError } from './parse.mjs';
 import { renderDashboard } from './render.mjs';
 
@@ -123,7 +124,8 @@ function dashboard(values, files) {
 
   const metrics = computeMetrics(parsed, { slowest });
   const flakiness = runs ? computeFlakiness(runs, { window }) : null;
-  const html = renderDashboard(metrics, { title: values.title, note: values.note, source, flakiness });
+  const trends = runs ? computeTrends(runs, { window }) : null;
+  const html = renderDashboard(metrics, { title: values.title, note: values.note, source, flakiness, trends });
   mkdirSync(dirname(values.out), { recursive: true });
   writeFileSync(values.out, html);
 

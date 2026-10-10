@@ -1,3 +1,6 @@
+import { buildLineChartSvg } from './chart.mjs';
+import { lastChange } from './trends.mjs';
+
 // Gera o dashboard como uma única página HTML autocontida (sem CDN, sem build).
 // Todo texto vindo do relatório passa por esc(): títulos de teste e mensagens de
 // erro são dados não confiáveis.
@@ -252,12 +255,149 @@ function historySection(f, top = 10) {
 </section>`;
 }
 
+
+// ---- tendência entre execuções ----
+
+const MINUS = '−';
+
+export function fmtDelta(change, kind) {
+  if (!change) return '';
+  const { delta } = change;
+  if (kind === 'pct') {
+    const points = Math.round(Math.abs(delta) * 1000) / 10;
+    return points === 0 ? 'sem variação' : `${delta > 0 ? '+' : MINUS}${nf1.format(points)} p.p.`;
+  }
+  return Math.abs(delta) < 1 ? 'sem variação' : `${delta > 0 ? '+' : MINUS}${fmtMs(Math.abs(delta))}`;
+}
+
+export function jsonForScript(value) {
+  // Seguro dentro de <script type="application/json">: nada que feche a tag ou quebre o parser.
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .split(String.fromCharCode(0x2028))
+    .join('\\u2028')
+    .split(String.fromCharCode(0x2029))
+    .join('\\u2029');
+}
+
+function trendSpecs(trends) {
+  const pts = trends.points;
+  const labels = pts.map((p) => fmtShortDate(p.startTime));
+  const when = (p) => fmtDate(p.startTime);
+  const counts = (p) => `${p.executed} executados · ${p.failed} falhas · ${p.flaky} flaky`;
+  return [
+    {
+      id: 'chart-pass',
+      wide: true,
+      title: 'Taxa de sucesso',
+      subtitle: 'Por execução. A distância entre as duas linhas é o quanto o retry esconde.',
+      format: 'pct',
+      kind: 'pct',
+      key: 'passRate',
+      series: [
+        { name: 'Taxa de sucesso', color: 'var(--series-1)', values: pts.map((p) => p.passRate) },
+        { name: 'Na primeira tentativa', color: 'var(--series-2)', values: pts.map((p) => p.firstAttemptRate) },
+      ],
+      labels,
+      tips: pts.map((p) =>
+        [`*${fmtPct(p.passRate)}  Taxa de sucesso`, `*${fmtPct(p.firstAttemptRate)}  Na primeira tentativa`, when(p), counts(p)].join('\n'),
+      ),
+    },
+    {
+      id: 'chart-wall',
+      title: 'Duração da execução',
+      subtitle: 'Tempo total da suíte, do início ao fim.',
+      format: 'ms',
+      kind: 'ms',
+      key: 'wallMs',
+      series: [{ name: 'Duração da execução', color: 'var(--series-1)', area: true, values: pts.map((p) => p.wallMs) }],
+      labels,
+      tips: pts.map((p) => [`*${fmtMs(p.wallMs)}  Duração da execução`, when(p), counts(p)].join('\n')),
+    },
+    {
+      id: 'chart-p95',
+      title: 'p95 por teste',
+      subtitle: '95% dos testes terminam em até esse tempo.',
+      format: 'ms',
+      kind: 'ms',
+      key: 'p95Ms',
+      series: [{ name: 'p95 por teste', color: 'var(--series-1)', area: true, values: pts.map((p) => p.p95Ms) }],
+      labels,
+      tips: pts.map((p) => [`*${fmtMs(p.p95Ms)}  p95 por teste`, `média ${fmtMs(p.meanMs)}`, when(p)].join('\n')),
+    },
+  ].map((spec) => ({
+    ...spec,
+    ariaLabel: `${spec.title}: ${spec.series
+      .map((s) => {
+        const vals = s.values.filter((v) => typeof v === 'number');
+        const fmt = spec.kind === 'pct' ? fmtPct : fmtMs;
+        return vals.length ? `${s.name} de ${fmt(vals[0])} a ${fmt(vals[vals.length - 1])}` : `${s.name} sem dados`;
+      })
+      .join('; ')}, entre ${labels[0]} e ${labels[labels.length - 1]}`,
+  }));
+}
+
+function trendSection(trends) {
+  if (!trends) return '';
+  const pts = trends.points;
+  const head = `<h2>Tendência nas últimas ${pts.length} ${pts.length === 1 ? 'execução' : 'execuções'}</h2>`;
+  if (pts.length < 2) {
+    return `<section class="card">${head}<p class="empty">São necessárias pelo menos 2 execuções no histórico para desenhar a tendência.</p></section>`;
+  }
+
+  const specs = trendSpecs(trends);
+  const cards = specs
+    .map((spec) => {
+      const change = lastChange(pts, spec.key);
+      const lastVal = change ? change.last : null;
+      const summary = change
+        ? `Última: <strong>${spec.kind === 'pct' ? fmtPct(lastVal) : fmtMs(lastVal)}</strong> (${fmtDelta(change, spec.kind)} em relação à anterior)`
+        : '';
+      const legend =
+        spec.series.length > 1
+          ? `<ul class="legend" aria-label="Legenda">${spec.series
+              .map((s) => `<li><span class="key" style="background:${s.color}"></span>${esc(s.name)}</li>`)
+              .join('')}</ul>`
+          : '';
+      const initial = buildLineChartSvg({ ...spec, width: 640, height: 220 });
+      return `<figure class="card${spec.wide ? ' wide' : ''}">
+  <figcaption><h3>${esc(spec.title)}</h3><p>${esc(spec.subtitle)}</p>${summary ? `<p class="trend-sum">${summary}</p>` : ''}</figcaption>
+  ${legend}
+  <div class="chart-host" id="${spec.id}">${initial}</div>
+</figure>`;
+    })
+    .join('\n');
+
+  const rows = pts
+    .map(
+      (p) => `<tr><td>${esc(fmtDate(p.startTime))}</td><td class="num">${p.executed}</td><td class="num">${fmtPct(p.passRate)}</td><td class="num">${fmtPct(
+        p.firstAttemptRate,
+      )}</td><td class="num">${p.failed}</td><td class="num">${p.flaky}</td><td class="num">${fmtMs(p.wallMs)}</td><td class="num">${fmtMs(p.p95Ms)}</td></tr>`,
+    )
+    .join('\n');
+  const chartData = specs.map(({ id, format, series, labels, tips, ariaLabel }) => ({ id, format, series, labels, tips, ariaLabel }));
+
+  return `<section class="card">${head}
+  <p class="sub">Cada ponto é uma execução do histórico, da mais antiga para a mais recente. Passe o mouse sobre um gráfico para ver os valores de cada execução.</p>
+  <div class="trend-grid">${cards}</div>
+  <details class="twin"><summary>Ver os dados como tabela</summary>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Execução</th><th class="num">Executados</th><th class="num">Taxa de sucesso</th><th class="num">1ª tentativa</th><th class="num">Falhas</th><th class="num">Flaky</th><th class="num">Duração</th><th class="num">p95</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </details>
+  <script type="application/json" id="chart-data">${jsonForScript(chartData)}</script>
+</section>`;
+}
+
 const CSS = `
 :root {
   color-scheme: light;
   --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
   --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
-  --series-1: #2a78d6; --track: #eceae4;
+  --series-1: #2a78d6; --series-2: #eb6834; --track: #eceae4;
   --good: #0ca30c; --warning: #fab219; --critical: #d03b3b; --skipped: #898781;
   --on-good: #0b0b0b; --on-warning: #0b0b0b; --on-critical: #ffffff; --on-skipped: #0b0b0b;
 }
@@ -266,14 +406,14 @@ const CSS = `
     color-scheme: dark;
     --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
     --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
-    --series-1: #3987e5; --track: #262624;
+    --series-1: #3987e5; --series-2: #d95926; --track: #262624;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
   --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
   --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
-  --series-1: #3987e5; --track: #262624;
+  --series-1: #3987e5; --series-2: #d95926; --track: #262624;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -364,13 +504,36 @@ footer { color: var(--muted); font-size: 12px; }
 .cell.c-none { background: transparent; border: 1px dashed var(--axis); }
 .cell:hover { filter: brightness(1.15); }
 .legend-cell { flex: none; width: 14px; height: 14px; font-size: 9px; }
+.trend-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 16px; margin-top: 12px; }
+.trend-grid .wide { grid-column: 1 / -1; }
+.trend-grid .card { box-shadow: none; }
+h3 { font-size: 14px; margin: 0 0 2px; }
+.trend-sum { margin-top: 4px; color: var(--ink); font-size: 13px; }
+.chart-host { margin-top: 8px; width: 100%; }
+.lc { display: block; width: 100%; height: auto; }
+.lc .gl { stroke: var(--grid); stroke-width: 1; }
+.lc .axis { stroke: var(--axis); stroke-width: 1; }
+.lc .ax { fill: var(--ink-2); font-size: 11px; }
+.lc .dl { fill: var(--ink); font-size: 12px; font-weight: 600; }
+.lc .end, .lc .hm { stroke: var(--surface); stroke-width: 2; }
+.lc .hit { fill: transparent; }
+.lc .xhair { stroke: var(--axis); stroke-width: 1; opacity: 0; pointer-events: none; }
+.lc .hm { opacity: 0; pointer-events: none; }
+.lc .col:hover .xhair, .lc .col:hover .hm { opacity: 1; }
+.key { display: inline-block; width: 18px; height: 2px; border-radius: 1px; }
+.twin { margin-top: 14px; }
+.twin summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
+.twin .table-wrap { margin-top: 8px; }
 @media (max-width: 560px) {
   .grid-2 { grid-template-columns: 1fr; }
   .hero-value { font-size: 48px; }
 }
 `;
 
+const CHART_SOURCE = buildLineChartSvg.toString();
+
 const SCRIPT = `
+${CHART_SOURCE}
 (function () {
   var root = document.documentElement;
   var mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -386,10 +549,12 @@ const SCRIPT = `
   function show(el, x, y) {
     var lines = el.dataset.tip.split('\\n');
     tip.replaceChildren();
+    var marked = lines.some(function (l) { return l.charAt(0) === '*'; });
     lines.forEach(function (line, i) {
+      var strong = marked ? line.charAt(0) === '*' : i === 0;
       var d = document.createElement('div');
-      d.className = i === 0 ? 'v' : 'l';
-      d.textContent = line;
+      d.className = strong ? 'v' : 'l';
+      d.textContent = marked && strong ? line.slice(1) : line;
       tip.appendChild(d);
     });
     tip.hidden = false;
@@ -410,6 +575,26 @@ const SCRIPT = `
   });
   document.addEventListener('focusout', hide);
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(); });
+
+  var chartData = [];
+  try { chartData = JSON.parse(document.getElementById('chart-data').textContent); } catch (e) {}
+  function drawCharts() {
+    chartData.forEach(function (spec) {
+      var host = document.getElementById(spec.id);
+      if (!host) return;
+      var w = Math.floor(host.clientWidth);
+      if (w < 200 || host.dataset.w === String(w)) return;
+      host.dataset.w = String(w);
+      host.innerHTML = buildLineChartSvg(Object.assign({}, spec, { width: w, height: w < 420 ? 190 : 220 }));
+    });
+  }
+  drawCharts();
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(function () { window.requestAnimationFrame(drawCharts); });
+    chartData.forEach(function (spec) { var h = document.getElementById(spec.id); if (h) ro.observe(h); });
+  } else {
+    window.addEventListener('resize', drawCharts);
+  }
 
   var rows = Array.prototype.slice.call(document.querySelectorAll('#tests tbody tr'));
   var count = document.getElementById('count');
@@ -438,7 +623,7 @@ const SCRIPT = `
 })();
 `;
 
-export function renderDashboard(metrics, { title = 'QA Insights', note = '', source = '', flakiness = null } = {}) {
+export function renderDashboard(metrics, { title = 'QA Insights', note = '', source = '', flakiness = null, trends = null } = {}) {
   const t = metrics.totals;
   const date = fmtDate(metrics.startTime);
   const meta = [source && `Origem: ${source}`, date && `Execução: ${date}`].filter(Boolean).join(' · ');
@@ -466,6 +651,7 @@ export function renderDashboard(metrics, { title = 'QA Insights', note = '', sou
 ${slowestChart(metrics)}
 ${suiteChart(metrics)}
 </div>
+${trendSection(trends)}
 ${historySection(flakiness)}
 ${problemList(metrics)}
 ${testsTable(metrics)}`;
@@ -476,6 +662,7 @@ ${testsTable(metrics)}`;
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
+<meta name="description" content="Dashboard de qualidade de testes: taxa de sucesso, testes lentos, instabilidade e tendência.">
 <style>${CSS}</style>
 </head>
 <body>
