@@ -22,6 +22,10 @@ export function fmtMs(ms) {
   return `${Math.floor(totalSec / 60)} min ${totalSec % 60} s`;
 }
 
+export function fmtPct0(ratio) {
+  return ratio === null || ratio === undefined ? '–' : `${nf0.format(Math.round(ratio * 100))}%`;
+}
+
 export function fmtPct(ratio) {
   return ratio === null || ratio === undefined ? '–' : `${nf1.format(ratio * 100)}%`;
 }
@@ -157,6 +161,97 @@ function testsTable(m) {
 </section>`;
 }
 
+
+const CELL_GLYPH = { flaky: '!', failed: '✕' };
+const CELL_LABEL = { passed: 'Passou', flaky: 'Flaky', failed: 'Falhou', skipped: 'Ignorado', none: 'Sem dados' };
+
+function fmtShortDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso ?? '');
+  return m ? `${m[3]}/${m[2]} ${m[4]}:${m[5]}` : '';
+}
+
+function runStrip(test, runs) {
+  const cells = test.cells
+    .map((status, i) => {
+      const kind = status ?? 'none';
+      const tip = [CELL_LABEL[kind], test.title, `Execução de ${fmtDate(runs[i].startTime)}`].join('\n');
+      return `<span class="cell c-${kind}" data-tip="${esc(tip)}" aria-hidden="true">${CELL_GLYPH[kind] ?? ''}</span>`;
+    })
+    .join('');
+  const tally = {};
+  for (const status of test.cells) tally[status ?? 'none'] = (tally[status ?? 'none'] ?? 0) + 1;
+  const summary = Object.entries(tally)
+    .map(([k, n]) => `${n} ${CELL_LABEL[k].toLowerCase()}`)
+    .join(', ');
+  return `<div class="strip" role="img" aria-label="${esc(`Últimas ${test.cells.length} execuções: ${summary}`)}">${cells}</div>`;
+}
+
+function historySection(f, top = 10) {
+  if (!f) return '';
+  const range =
+    f.runs.length > 0 ? `${fmtDate(f.runs[0].startTime)} a ${fmtDate(f.runs[f.runs.length - 1].startTime)}` : '';
+  const head = `<h2>Instabilidade nas últimas ${f.runsAnalyzed} execuções</h2>
+  <p class="sub">${range ? `${esc(range)}. ` : ''}Um teste é <em>instável</em> quando termina flaky ou muda de resultado entre execuções em pelo menos ${fmtPct0(
+    f.thresholds.unstable,
+  )} das vezes em que roda (e em ao menos ${f.thresholds.minInconsistent} execuções). Quem falha ${f.thresholds.persistentStreak} ou mais vezes seguidas sem ter alternado antes é uma <em>falha persistente</em>, não instabilidade.</p>`;
+
+  if (f.runsAnalyzed < f.thresholds.minRuns) {
+    return `<section class="card">${head}<p class="empty">O histórico tem apenas ${f.runsAnalyzed} ${
+      f.runsAnalyzed === 1 ? 'execução' : 'execuções'
+    }. São necessárias pelo menos ${f.thresholds.minRuns} para calcular a instabilidade com algum critério.</p></section>`;
+  }
+
+  const tiles = `<div class="tiles">
+    ${tile('Instáveis', nf0.format(f.counts.unstable), 'flaky')}
+    ${tile('Falhas persistentes', nf0.format(f.counts.persistent), 'failed')}
+    ${tile('Estáveis', nf0.format(f.counts.stable), 'passed')}
+    ${tile('Execuções analisadas', nf0.format(f.runsAnalyzed), null, `janela de até ${f.window}`)}
+  </div>`;
+
+  const problems = f.tests.filter((t) => t.label === 'unstable' || t.label === 'persistent').slice(0, top);
+  if (problems.length === 0) {
+    return `<section class="card">${head}${tiles}<p class="empty">Nenhum teste instável nem com falha persistente nesta janela.</p></section>`;
+  }
+
+  const legend = ['passed', 'flaky', 'failed', 'skipped', 'none']
+    .map((k) => `<li><span class="cell c-${k} legend-cell" aria-hidden="true">${CELL_GLYPH[k] ?? ''}</span>${CELL_LABEL[k]}</li>`)
+    .join('');
+
+  const rows = problems
+    .map((t) => {
+      const unstable = t.label === 'unstable';
+      const status = unstable ? 'flaky' : 'failed';
+      const value = unstable
+        ? `<strong>${fmtPct0(t.rate)}</strong><span>das execuções inconsistentes</span>`
+        : `<strong>${t.failStreak}</strong><span>falhas seguidas</span>`;
+      return `<li class="unstable-row">
+  <div class="row-label">
+    <span class="row-title" title="${esc(t.title)}"><span class="badge"><span class="dot s-${status}" aria-hidden="true">${
+        STATUS[status].icon
+      }</span>${unstable ? 'Instável' : 'Falha persistente'}</span>${esc(t.title)}</span>
+    <span class="row-sub">${esc(t.file)} · ${t.executed} execuções · ${t.flakyRuns} flaky · ${t.failedRuns} falhas · ${t.flips} ${
+        t.flips === 1 ? 'virada' : 'viradas'
+      }</span>
+  </div>
+  <div class="metric">${value}</div>
+  <div class="strip-wrap">${runStrip(t, f.runs)}<div class="strip-axis"><span>${fmtShortDate(f.runs[0].startTime)}</span><span>${fmtShortDate(
+        f.runs[f.runs.length - 1].startTime,
+      )}</span></div></div>
+</li>`;
+    })
+    .join('\n');
+
+  const more =
+    f.counts.unstable + f.counts.persistent > problems.length
+      ? `<p class="sub">Mostrando os ${problems.length} primeiros de ${f.counts.unstable + f.counts.persistent}.</p>`
+      : '';
+
+  return `<section class="card">${head}${tiles}
+  <ul class="legend" aria-label="Legenda da faixa de execuções">${legend}</ul>
+  <ol class="unstable-list">${rows}</ol>${more}
+</section>`;
+}
+
 const CSS = `
 :root {
   color-scheme: light;
@@ -249,6 +344,26 @@ footer { color: var(--muted); font-size: 12px; }
 #tip { position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: var(--surface); border-radius: 8px; padding: 8px 10px; font-size: 12px; max-width: 320px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
 #tip .v { font-size: 15px; font-weight: 650; }
 #tip .l { opacity: 0.85; overflow-wrap: anywhere; }
+.unstable-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 14px; }
+.unstable-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; align-items: start; border-top: 1px solid var(--grid); padding-top: 12px; }
+.unstable-row:first-child { border-top: 0; padding-top: 0; }
+.unstable-row .row-label { grid-column: 1; }
+.unstable-row .row-title { flex-wrap: wrap; }
+.unstable-row .row-sub { white-space: normal; }
+.metric { grid-column: 2; grid-row: 1; text-align: right; display: grid; line-height: 1.2; }
+.metric strong { font-size: 22px; font-weight: 650; }
+.metric span { font-size: 12px; color: var(--ink-2); }
+.strip-wrap { grid-column: 1 / -1; }
+.strip { display: flex; gap: 2px; }
+.strip-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 3px; }
+.cell { flex: 1 1 0; max-width: 28px; min-width: 8px; height: 20px; border-radius: 3px; display: grid; place-items: center; font-size: 11px; font-weight: 700; line-height: 1; }
+.cell.c-passed { background: var(--good); color: var(--on-good); }
+.cell.c-flaky { background: var(--warning); color: var(--on-warning); }
+.cell.c-failed { background: var(--critical); color: var(--on-critical); }
+.cell.c-skipped { background: var(--skipped); color: var(--on-skipped); }
+.cell.c-none { background: transparent; border: 1px dashed var(--axis); }
+.cell:hover { filter: brightness(1.15); }
+.legend-cell { flex: none; width: 14px; height: 14px; font-size: 9px; }
 @media (max-width: 560px) {
   .grid-2 { grid-template-columns: 1fr; }
   .hero-value { font-size: 48px; }
@@ -323,7 +438,7 @@ const SCRIPT = `
 })();
 `;
 
-export function renderDashboard(metrics, { title = 'QA Insights', note = '', source = '' } = {}) {
+export function renderDashboard(metrics, { title = 'QA Insights', note = '', source = '', flakiness = null } = {}) {
   const t = metrics.totals;
   const date = fmtDate(metrics.startTime);
   const meta = [source && `Origem: ${source}`, date && `Execução: ${date}`].filter(Boolean).join(' · ');
@@ -351,6 +466,7 @@ export function renderDashboard(metrics, { title = 'QA Insights', note = '', sou
 ${slowestChart(metrics)}
 ${suiteChart(metrics)}
 </div>
+${historySection(flakiness)}
 ${problemList(metrics)}
 ${testsTable(metrics)}`;
 

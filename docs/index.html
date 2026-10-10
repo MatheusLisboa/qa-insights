@@ -96,6 +96,26 @@ footer { color: var(--muted); font-size: 12px; }
 #tip { position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: var(--surface); border-radius: 8px; padding: 8px 10px; font-size: 12px; max-width: 320px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
 #tip .v { font-size: 15px; font-weight: 650; }
 #tip .l { opacity: 0.85; overflow-wrap: anywhere; }
+.unstable-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 14px; }
+.unstable-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; align-items: start; border-top: 1px solid var(--grid); padding-top: 12px; }
+.unstable-row:first-child { border-top: 0; padding-top: 0; }
+.unstable-row .row-label { grid-column: 1; }
+.unstable-row .row-title { flex-wrap: wrap; }
+.unstable-row .row-sub { white-space: normal; }
+.metric { grid-column: 2; grid-row: 1; text-align: right; display: grid; line-height: 1.2; }
+.metric strong { font-size: 22px; font-weight: 650; }
+.metric span { font-size: 12px; color: var(--ink-2); }
+.strip-wrap { grid-column: 1 / -1; }
+.strip { display: flex; gap: 2px; }
+.strip-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 3px; }
+.cell { flex: 1 1 0; max-width: 28px; min-width: 8px; height: 20px; border-radius: 3px; display: grid; place-items: center; font-size: 11px; font-weight: 700; line-height: 1; }
+.cell.c-passed { background: var(--good); color: var(--on-good); }
+.cell.c-flaky { background: var(--warning); color: var(--on-warning); }
+.cell.c-failed { background: var(--critical); color: var(--on-critical); }
+.cell.c-skipped { background: var(--skipped); color: var(--on-skipped); }
+.cell.c-none { background: transparent; border: 1px dashed var(--axis); }
+.cell:hover { filter: brightness(1.15); }
+.legend-cell { flex: none; width: 14px; height: 14px; font-size: 9px; }
 @media (max-width: 560px) {
   .grid-2 { grid-template-columns: 1fr; }
   .hero-value { font-size: 48px; }
@@ -105,10 +125,10 @@ footer { color: var(--muted); font-size: 12px; }
 <body>
 <main>
   <div class="top">
-    <div><h1>QA Insights</h1><p class="meta">Origem: playwright-report.json · Execução: 08/10/2026 14:00 UTC</p></div>
+    <div><h1>QA Insights</h1><p class="meta">Origem: histórico (30 execuções) · Execução: 08/10/2026 14:00 UTC</p></div>
     <button type="button" class="theme" id="theme">Alternar tema</button>
   </div>
-  <p class="note" role="note">Dados sintéticos de demonstração: o relatório de exemplo foi gerado por scripts/make-sample.mjs e não vem de um sistema real.</p>
+  <p class="note" role="note">Dados sintéticos de demonstração: o relatório e o histórico de 30 execuções foram gerados por scripts/make-sample.mjs e scripts/make-sample-history.mjs e não vêm de um sistema real.</p>
   <section class="card">
   <div class="hero">
     <div><div class="hero-value">92,5%</div><div class="hero-label">Taxa de sucesso</div></div>
@@ -260,37 +280,334 @@ catalog/search.spec.ts" aria-label="catalog/search.spec.ts: 1 ignorados"></div><
 </li></ol>
 </figure>
 </div>
+<section class="card"><h2>Instabilidade nas últimas 20 execuções</h2>
+  <p class="sub">29/09/2026 02:00 UTC a 08/10/2026 14:00 UTC. Um teste é <em>instável</em> quando termina flaky ou muda de resultado entre execuções em pelo menos 10% das vezes em que roda (e em ao menos 2 execuções). Quem falha 3 ou mais vezes seguidas sem ter alternado antes é uma <em>falha persistente</em>, não instabilidade.</p><div class="tiles">
+    <div class="tile"><div class="tile-label"><span class="dot s-flaky" aria-hidden="true">!</span>Instáveis</div><div class="tile-value">4</div></div>
+    <div class="tile"><div class="tile-label"><span class="dot s-failed" aria-hidden="true">✕</span>Falhas persistentes</div><div class="tile-value">2</div></div>
+    <div class="tile"><div class="tile-label"><span class="dot s-passed" aria-hidden="true">✓</span>Estáveis</div><div class="tile-value">34</div></div>
+    <div class="tile"><div class="tile-label">Execuções analisadas</div><div class="tile-value">20</div><div class="tile-hint">janela de até 20</div></div>
+  </div>
+  <ul class="legend" aria-label="Legenda da faixa de execuções"><li><span class="cell c-passed legend-cell" aria-hidden="true"></span>Passou</li><li><span class="cell c-flaky legend-cell" aria-hidden="true">!</span>Flaky</li><li><span class="cell c-failed legend-cell" aria-hidden="true">✕</span>Falhou</li><li><span class="cell c-skipped legend-cell" aria-hidden="true"></span>Ignorado</li><li><span class="cell c-none legend-cell" aria-hidden="true"></span>Sem dados</li></ul>
+  <ol class="unstable-list"><li class="unstable-row">
+  <div class="row-label">
+    <span class="row-title" title="emite confirmação por e-mail"><span class="badge"><span class="dot s-flaky" aria-hidden="true">!</span>Instável</span>emite confirmação por e-mail</span>
+    <span class="row-sub">checkout/checkout.spec.ts · 20 execuções · 1 flaky · 9 falhas · 7 viradas</span>
+  </div>
+  <div class="metric"><strong>40%</strong><span>das execuções inconsistentes</span></div>
+  <div class="strip-wrap"><div class="strip" role="img" aria-label="Últimas 20 execuções: 10 passou, 9 falhou, 1 flaky"><span class="cell c-passed" data-tip="Passou
+emite confirmação por e-mail
+Execução de 29/09/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+emite confirmação por e-mail
+Execução de 29/09/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-failed" data-tip="Falhou
+emite confirmação por e-mail
+Execução de 30/09/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-passed" data-tip="Passou
+emite confirmação por e-mail
+Execução de 30/09/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-failed" data-tip="Falhou
+emite confirmação por e-mail
+Execução de 01/10/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+emite confirmação por e-mail
+Execução de 01/10/2026 14:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+emite confirmação por e-mail
+Execução de 02/10/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-passed" data-tip="Passou
+emite confirmação por e-mail
+Execução de 02/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-failed" data-tip="Falhou
+emite confirmação por e-mail
+Execução de 03/10/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+emite confirmação por e-mail
+Execução de 03/10/2026 14:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+emite confirmação por e-mail
+Execução de 04/10/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+emite confirmação por e-mail
+Execução de 04/10/2026 14:00 UTC" aria-hidden="true">✕</span><span class="cell c-passed" data-tip="Passou
+emite confirmação por e-mail
+Execução de 05/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-flaky" data-tip="Flaky
+emite confirmação por e-mail
+Execução de 05/10/2026 14:00 UTC" aria-hidden="true">!</span><span class="cell c-passed" data-tip="Passou
+emite confirmação por e-mail
+Execução de 06/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+emite confirmação por e-mail
+Execução de 06/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+emite confirmação por e-mail
+Execução de 07/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+emite confirmação por e-mail
+Execução de 07/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+emite confirmação por e-mail
+Execução de 08/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-failed" data-tip="Falhou
+emite confirmação por e-mail
+Execução de 08/10/2026 14:00 UTC" aria-hidden="true">✕</span></div><div class="strip-axis"><span>29/09 02:00</span><span>08/10 14:00</span></div></div>
+</li>
+<li class="unstable-row">
+  <div class="row-label">
+    <span class="row-title" title="calcula o frete por CEP"><span class="badge"><span class="dot s-flaky" aria-hidden="true">!</span>Instável</span>calcula o frete por CEP</span>
+    <span class="row-sub">checkout/checkout.spec.ts · 20 execuções · 8 flaky · 0 falhas · 0 viradas</span>
+  </div>
+  <div class="metric"><strong>40%</strong><span>das execuções inconsistentes</span></div>
+  <div class="strip-wrap"><div class="strip" role="img" aria-label="Últimas 20 execuções: 8 flaky, 12 passou"><span class="cell c-flaky" data-tip="Flaky
+calcula o frete por CEP
+Execução de 29/09/2026 02:00 UTC" aria-hidden="true">!</span><span class="cell c-flaky" data-tip="Flaky
+calcula o frete por CEP
+Execução de 29/09/2026 14:00 UTC" aria-hidden="true">!</span><span class="cell c-flaky" data-tip="Flaky
+calcula o frete por CEP
+Execução de 30/09/2026 02:00 UTC" aria-hidden="true">!</span><span class="cell c-flaky" data-tip="Flaky
+calcula o frete por CEP
+Execução de 30/09/2026 14:00 UTC" aria-hidden="true">!</span><span class="cell c-passed" data-tip="Passou
+calcula o frete por CEP
+Execução de 01/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+calcula o frete por CEP
+Execução de 01/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+calcula o frete por CEP
+Execução de 02/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+calcula o frete por CEP
+Execução de 02/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+calcula o frete por CEP
+Execução de 03/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+calcula o frete por CEP
+Execução de 03/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-flaky" data-tip="Flaky
+calcula o frete por CEP
+Execução de 04/10/2026 02:00 UTC" aria-hidden="true">!</span><span class="cell c-passed" data-tip="Passou
+calcula o frete por CEP
+Execução de 04/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-flaky" data-tip="Flaky
+calcula o frete por CEP
+Execução de 05/10/2026 02:00 UTC" aria-hidden="true">!</span><span class="cell c-passed" data-tip="Passou
+calcula o frete por CEP
+Execução de 05/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+calcula o frete por CEP
+Execução de 06/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-flaky" data-tip="Flaky
+calcula o frete por CEP
+Execução de 06/10/2026 14:00 UTC" aria-hidden="true">!</span><span class="cell c-passed" data-tip="Passou
+calcula o frete por CEP
+Execução de 07/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+calcula o frete por CEP
+Execução de 07/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+calcula o frete por CEP
+Execução de 08/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-flaky" data-tip="Flaky
+calcula o frete por CEP
+Execução de 08/10/2026 14:00 UTC" aria-hidden="true">!</span></div><div class="strip-axis"><span>29/09 02:00</span><span>08/10 14:00</span></div></div>
+</li>
+<li class="unstable-row">
+  <div class="row-label">
+    <span class="row-title" title="sugere termos ao digitar (autocomplete)"><span class="badge"><span class="dot s-flaky" aria-hidden="true">!</span>Instável</span>sugere termos ao digitar (autocomplete)</span>
+    <span class="row-sub">catalog/search.spec.ts · 20 execuções · 6 flaky · 0 falhas · 0 viradas</span>
+  </div>
+  <div class="metric"><strong>30%</strong><span>das execuções inconsistentes</span></div>
+  <div class="strip-wrap"><div class="strip" role="img" aria-label="Últimas 20 execuções: 6 flaky, 14 passou"><span class="cell c-flaky" data-tip="Flaky
+sugere termos ao digitar (autocomplete)
+Execução de 29/09/2026 02:00 UTC" aria-hidden="true">!</span><span class="cell c-passed" data-tip="Passou
+sugere termos ao digitar (autocomplete)
+Execução de 29/09/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+sugere termos ao digitar (autocomplete)
+Execução de 30/09/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+sugere termos ao digitar (autocomplete)
+Execução de 30/09/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-flaky" data-tip="Flaky
+sugere termos ao digitar (autocomplete)
+Execução de 01/10/2026 02:00 UTC" aria-hidden="true">!</span><span class="cell c-passed" data-tip="Passou
+sugere termos ao digitar (autocomplete)
+Execução de 01/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+sugere termos ao digitar (autocomplete)
+Execução de 02/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-flaky" data-tip="Flaky
+sugere termos ao digitar (autocomplete)
+Execução de 02/10/2026 14:00 UTC" aria-hidden="true">!</span><span class="cell c-passed" data-tip="Passou
+sugere termos ao digitar (autocomplete)
+Execução de 03/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-flaky" data-tip="Flaky
+sugere termos ao digitar (autocomplete)
+Execução de 03/10/2026 14:00 UTC" aria-hidden="true">!</span><span class="cell c-passed" data-tip="Passou
+sugere termos ao digitar (autocomplete)
+Execução de 04/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+sugere termos ao digitar (autocomplete)
+Execução de 04/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+sugere termos ao digitar (autocomplete)
+Execução de 05/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-flaky" data-tip="Flaky
+sugere termos ao digitar (autocomplete)
+Execução de 05/10/2026 14:00 UTC" aria-hidden="true">!</span><span class="cell c-passed" data-tip="Passou
+sugere termos ao digitar (autocomplete)
+Execução de 06/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+sugere termos ao digitar (autocomplete)
+Execução de 06/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+sugere termos ao digitar (autocomplete)
+Execução de 07/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+sugere termos ao digitar (autocomplete)
+Execução de 07/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+sugere termos ao digitar (autocomplete)
+Execução de 08/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-flaky" data-tip="Flaky
+sugere termos ao digitar (autocomplete)
+Execução de 08/10/2026 14:00 UTC" aria-hidden="true">!</span></div><div class="strip-axis"><span>29/09 02:00</span><span>08/10 14:00</span></div></div>
+</li>
+<li class="unstable-row">
+  <div class="row-label">
+    <span class="row-title" title="envia e-mail de recuperação de senha"><span class="badge"><span class="dot s-flaky" aria-hidden="true">!</span>Instável</span>envia e-mail de recuperação de senha</span>
+    <span class="row-sub">auth/login.spec.ts · 20 execuções · 3 flaky · 0 falhas · 0 viradas</span>
+  </div>
+  <div class="metric"><strong>15%</strong><span>das execuções inconsistentes</span></div>
+  <div class="strip-wrap"><div class="strip" role="img" aria-label="Últimas 20 execuções: 17 passou, 3 flaky"><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 29/09/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 29/09/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 30/09/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 30/09/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 01/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 01/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 02/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 02/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 03/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 03/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-flaky" data-tip="Flaky
+envia e-mail de recuperação de senha
+Execução de 04/10/2026 02:00 UTC" aria-hidden="true">!</span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 04/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 05/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 05/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 06/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 06/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-flaky" data-tip="Flaky
+envia e-mail de recuperação de senha
+Execução de 07/10/2026 02:00 UTC" aria-hidden="true">!</span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 07/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+envia e-mail de recuperação de senha
+Execução de 08/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-flaky" data-tip="Flaky
+envia e-mail de recuperação de senha
+Execução de 08/10/2026 14:00 UTC" aria-hidden="true">!</span></div><div class="strip-axis"><span>29/09 02:00</span><span>08/10 14:00</span></div></div>
+</li>
+<li class="unstable-row">
+  <div class="row-label">
+    <span class="row-title" title="GET /orders/:id de outro usuário retorna 403"><span class="badge"><span class="dot s-failed" aria-hidden="true">✕</span>Falha persistente</span>GET /orders/:id de outro usuário retorna 403</span>
+    <span class="row-sub">api/orders.spec.ts · 20 execuções · 0 flaky · 18 falhas · 1 virada</span>
+  </div>
+  <div class="metric"><strong>18</strong><span>falhas seguidas</span></div>
+  <div class="strip-wrap"><div class="strip" role="img" aria-label="Últimas 20 execuções: 2 passou, 18 falhou"><span class="cell c-passed" data-tip="Passou
+GET /orders/:id de outro usuário retorna 403
+Execução de 29/09/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+GET /orders/:id de outro usuário retorna 403
+Execução de 29/09/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 30/09/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 30/09/2026 14:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 01/10/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 01/10/2026 14:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 02/10/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 02/10/2026 14:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 03/10/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 03/10/2026 14:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 04/10/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 04/10/2026 14:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 05/10/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 05/10/2026 14:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 06/10/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 06/10/2026 14:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 07/10/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 07/10/2026 14:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 08/10/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+GET /orders/:id de outro usuário retorna 403
+Execução de 08/10/2026 14:00 UTC" aria-hidden="true">✕</span></div><div class="strip-axis"><span>29/09 02:00</span><span>08/10 14:00</span></div></div>
+</li>
+<li class="unstable-row">
+  <div class="row-label">
+    <span class="row-title" title="aplica cupom válido"><span class="badge"><span class="dot s-failed" aria-hidden="true">✕</span>Falha persistente</span>aplica cupom válido</span>
+    <span class="row-sub">cart/cart.spec.ts · 20 execuções · 0 flaky · 6 falhas · 1 virada</span>
+  </div>
+  <div class="metric"><strong>6</strong><span>falhas seguidas</span></div>
+  <div class="strip-wrap"><div class="strip" role="img" aria-label="Últimas 20 execuções: 14 passou, 6 falhou"><span class="cell c-passed" data-tip="Passou
+aplica cupom válido
+Execução de 29/09/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+aplica cupom válido
+Execução de 29/09/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+aplica cupom válido
+Execução de 30/09/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+aplica cupom válido
+Execução de 30/09/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+aplica cupom válido
+Execução de 01/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+aplica cupom válido
+Execução de 01/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+aplica cupom válido
+Execução de 02/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+aplica cupom válido
+Execução de 02/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+aplica cupom válido
+Execução de 03/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+aplica cupom válido
+Execução de 03/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+aplica cupom válido
+Execução de 04/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+aplica cupom válido
+Execução de 04/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+aplica cupom válido
+Execução de 05/10/2026 02:00 UTC" aria-hidden="true"></span><span class="cell c-passed" data-tip="Passou
+aplica cupom válido
+Execução de 05/10/2026 14:00 UTC" aria-hidden="true"></span><span class="cell c-failed" data-tip="Falhou
+aplica cupom válido
+Execução de 06/10/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+aplica cupom válido
+Execução de 06/10/2026 14:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+aplica cupom válido
+Execução de 07/10/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+aplica cupom válido
+Execução de 07/10/2026 14:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+aplica cupom válido
+Execução de 08/10/2026 02:00 UTC" aria-hidden="true">✕</span><span class="cell c-failed" data-tip="Falhou
+aplica cupom válido
+Execução de 08/10/2026 14:00 UTC" aria-hidden="true">✕</span></div><div class="strip-axis"><span>29/09 02:00</span><span>08/10 14:00</span></div></div>
+</li></ol>
+</section>
 <section class="card">
   <h2>Falhas e testes instáveis</h2>
   <p class="sub">Flaky = falhou e depois passou em um retry. Falhou = esgotou todas as tentativas.</p>
   <ul class="problems"><li class="problem">
   <div class="problem-head"><span class="badge"><span class="dot s-failed" aria-hidden="true">✕</span>Falhou</span><strong>aplica cupom válido</strong></div>
-  <div class="row-sub">cart/cart.spec.ts:34 · chromium · 3 tentativas</div>
+  <div class="row-sub">cart/cart.spec.ts · chromium · 3 tentativas</div>
   <pre class="err">expect(locator).toHaveText(expected) failed</pre>
 </li>
 <li class="problem">
   <div class="problem-head"><span class="badge"><span class="dot s-failed" aria-hidden="true">✕</span>Falhou</span><strong>emite confirmação por e-mail</strong></div>
-  <div class="row-sub">checkout/checkout.spec.ts:55 · chromium · 3 tentativas</div>
+  <div class="row-sub">checkout/checkout.spec.ts · chromium · 3 tentativas</div>
   <pre class="err">Test timeout of 30000ms exceeded.</pre>
 </li>
 <li class="problem">
   <div class="problem-head"><span class="badge"><span class="dot s-failed" aria-hidden="true">✕</span>Falhou</span><strong>GET /orders/:id de outro usuário retorna 403</strong></div>
-  <div class="row-sub">api/orders.spec.ts:62 · api · 3 tentativas</div>
+  <div class="row-sub">api/orders.spec.ts · api · 3 tentativas</div>
   <pre class="err">Error: expect(received).toBe(expected)</pre>
 </li>
 <li class="problem">
   <div class="problem-head"><span class="badge"><span class="dot s-flaky" aria-hidden="true">!</span>Flaky</span><strong>envia e-mail de recuperação de senha</strong></div>
-  <div class="row-sub">auth/login.spec.ts:34 · chromium · 2 tentativas</div>
+  <div class="row-sub">auth/login.spec.ts · chromium · 2 tentativas</div>
   <pre class="err">Timeout 5000ms exceeded while waiting for locator(&#39;[data-testid=toast-success]&#39;)</pre>
 </li>
 <li class="problem">
   <div class="problem-head"><span class="badge"><span class="dot s-flaky" aria-hidden="true">!</span>Flaky</span><strong>sugere termos ao digitar (autocomplete)</strong></div>
-  <div class="row-sub">catalog/search.spec.ts:48 · chromium · 2 tentativas</div>
+  <div class="row-sub">catalog/search.spec.ts · chromium · 2 tentativas</div>
   <pre class="err">expect(locator).toBeVisible() failed: locator(&#39;[role=listbox]&#39;) not found</pre>
 </li>
 <li class="problem">
   <div class="problem-head"><span class="badge"><span class="dot s-flaky" aria-hidden="true">!</span>Flaky</span><strong>calcula o frete por CEP</strong></div>
-  <div class="row-sub">checkout/checkout.spec.ts:27 · chromium · 2 tentativas</div>
+  <div class="row-sub">checkout/checkout.spec.ts · chromium · 2 tentativas</div>
   <pre class="err">Timeout 5000ms exceeded while waiting for response &#39;**/api/shipping*&#39;</pre>
 </li></ul>
 </section>
