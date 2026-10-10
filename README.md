@@ -6,6 +6,8 @@ Transforma o relatório JSON do Playwright em um dashboard de qualidade: taxa de
 
 ![Análise de instabilidade nas últimas 20 execuções](docs/preview-instabilidade.png)
 
+![Tendência: taxa de sucesso, duração total e p95](docs/preview-tendencia.png)
+
 > **Dados de demonstração.** O relatório e o histórico de 30 execuções em `data/sample/` são **sintéticos**: foram gerados por [`scripts/make-sample.mjs`](scripts/make-sample.mjs) e [`scripts/make-sample-history.mjs`](scripts/make-sample-history.mjs) para uma loja virtual fictícia, com semente fixa (mesma saída a cada execução). Cada teste do histórico recebe um comportamento definido de propósito (instável, regressão, bug persistente, estável) para a análise ter o que encontrar. Nenhum número aqui vem de um sistema real.
 
 ## Por que isso existe
@@ -16,7 +18,7 @@ O relatório padrão do Playwright mostra **uma execução**. Quem mantém uma s
 
 - **Fase 1:** análise de uma execução e dashboard. Concluída.
 - **Fase 2:** histórico de execuções e taxa de instabilidade por teste. Concluída.
-- **Fase 3 (próxima):** gráficos de tendência, registro automático no CI e deploy público. Ver [Roadmap](#roadmap).
+- **Fase 3:** gráficos de tendência e registro automático do histórico no CI. Concluída; o deploy público depende de você ativar o GitHub Pages (abaixo).
 
 ## Uso
 
@@ -47,6 +49,20 @@ node src/cli.mjs --history qa-history --out dashboard.html
 ```
 
 O `ingest` é idempotente: o id da execução vem do hash do relatório, então registrar o mesmo arquivo duas vezes (por exemplo, numa re-execução do CI) não duplica nada. Use `--run-id` para registrar de propósito como outra execução.
+
+**Tendência e registro automático (Fase 3):**
+
+Com 2 ou mais execuções no histórico, o dashboard ganha a seção *Tendência*: taxa de sucesso (com a taxa de primeira tentativa, para mostrar o quanto o retry esconde), duração p95 por teste e duração total, mais uma tabela com os mesmos números.
+
+Para gravar o histórico sem pasta versionada na `main`, use o script que o guarda num branch dedicado (`qa-history`) do próprio repositório:
+
+```bash
+bash scripts/record-history.sh playwright-report.json
+```
+
+Ele é idempotente, não toca na sua árvore de trabalho nem nos seus branches (usa um worktree temporário), tenta de novo se outra execução gravou ao mesmo tempo e aborta, sem gravar nada, se não conseguir consultar o remoto. Opções: `--branch`, `--remote`, `--subdir`, `--commit`, `--source-branch`. O workflow completo está em [`examples/github-actions.yml`](examples/github-actions.yml).
+
+> **Honestidade sobre o que foi testado:** o script foi testado com repositórios Git reais (remoto local): branch novo, branch existente, repetição, corrida de push, remoto inacessível, clone raso. O workflow de exemplo teve a sintaxe YAML validada, mas **ainda não rodou num GitHub Actions real**, e eu não verifiquei a publicação automática do dashboard com o histórico no Pages. Hoje o dashboard do exemplo é gerado a partir do histórico sintético em `data/sample/`.
 
 **Com os dados de exemplo:**
 
@@ -101,7 +117,7 @@ Cada teste é identificado por **arquivo + describes + título + projeto**. O `s
 ## Decisões técnicas
 
 - **Zero dependências.** Node puro (`node:test`, `node:util`, `Intl`). Nada para instalar, nada para atualizar, nada a auditar.
-- **Página autocontida.** O HTML não carrega nada de fora (sem CDN, fontes ou scripts remotos): abre offline e pode ser anexado como artefato de CI. Os gráficos são HTML e CSS.
+- **Página autocontida.** O HTML não carrega nada de fora (sem CDN, fontes ou scripts remotos): abre offline e pode ser anexado como artefato de CI. Os gráficos de barras são HTML e CSS; os de linha são SVG gerado por uma função pura (`src/chart.mjs`), que roda no build e de novo no navegador para se ajustar à largura da tela.
 - **Dados do relatório são não confiáveis.** Títulos de teste e mensagens de erro passam por escape antes de entrar na página. Há um teste com payloads de XSS para garantir isso.
 - **Saída determinística.** A mesma entrada gera exatamente o mesmo HTML (datas em UTC, sem horário de geração). Isso permite que o CI detecte se o dashboard publicado ficou desatualizado em relação ao código.
 - **Acessibilidade.** Status nunca depende só de cor (ícone e rótulo em todos os lugares), há tooltip por teclado, tema claro e escuro e layout que funciona em tela de celular.
@@ -114,7 +130,8 @@ Um projeto de QA precisa ser testado como qualquer outro:
 
 - **Testes unitários e de integração** do parser, das métricas, do histórico, da análise de instabilidade, da renderização e da CLI (`npm test`), com foco em casos de borda: relatório vazio, só testes ignorados, status ausente no JSON, mesmo teste em projetos diferentes, código ANSI em mensagens de erro, id de execução malicioso, arquivo de histórico corrompido, limites exatos dos critérios de classificação.
 - **Testes de regressão com números de referência** sobre o relatório e o histórico de exemplo.
-- **Verificação por mutação (manual).** Bugs foram injetados de propósito no código para confirmar que os testes falham. Na Fase 1, 4 bugs: um sobreviveu (duração de teste ignorado) e gerou um teste novo. Na Fase 2, 13 bugs nos módulos de histórico e instabilidade (limite `>` no lugar de `>=`, janela pegando as execuções mais antigas, deduplicação por substring, identidade do teste via `spec.id`, entre outros), todos detectados.
+- **Verificação por mutação (manual).** Na Fase 3, 7 bugs nos módulos de tendência, gráfico e renderização (base do eixo, limite de colisão de rótulos, escape do JSON embutido, entre outros), todos detectados.
+- **Verificação por mutação (Fases 1 e 2).** Bugs foram injetados de propósito no código para confirmar que os testes falham. Na Fase 1, 4 bugs: um sobreviveu (duração de teste ignorado) e gerou um teste novo. Na Fase 2, 13 bugs nos módulos de histórico e instabilidade (limite `>` no lugar de `>=`, janela pegando as execuções mais antigas, deduplicação por substring, identidade do teste via `spec.id`, entre outros), todos detectados.
 - **Um defeito de projeto achado no caminho.** Ao gerar o histórico sintético, ficou claro que usar o `spec.id` como identidade do teste impediria seguir o mesmo teste entre execuções. A identidade foi trocada e ganhou testes próprios.
 - **CI** (GitHub Actions) em Node 20 e 22, que também falha se `docs/index.html`, o relatório de exemplo ou o histórico de exemplo estiverem fora de sincronia com o código.
 
@@ -125,9 +142,13 @@ src/parse.mjs       lê o JSON do Playwright e normaliza os testes
 src/metrics.mjs     taxa de sucesso, duração, p95, agrupamento por suíte
 src/history.mjs     gravação (idempotente) e leitura validada do histórico
 src/flakiness.mjs   taxa de instabilidade e classificação por teste
+src/trends.mjs      série por execução (taxa de sucesso, p95, duração)
+src/chart.mjs       gráfico de linhas em SVG (função pura)
 src/render.mjs      gera a página HTML do dashboard
 src/cli.mjs         interface de linha de comando (dashboard e ingest)
+scripts/record-history.sh  grava uma execução no branch qa-history
 scripts/            geradores do relatório e do histórico de exemplo (sintéticos)
+examples/           workflow de CI de exemplo
 data/sample/        relatório e histórico de exemplo
 docs/               dashboard gerado e imagens de preview
 test/               testes do projeto
@@ -137,5 +158,7 @@ test/               testes do projeto
 
 - [x] **Fase 1:** análise de uma execução e dashboard estático
 - [x] **Fase 2:** histórico de execuções e taxa de instabilidade por teste
-- [ ] **Fase 3:** gráficos de tendência (taxa de sucesso e duração ao longo das execuções), registro automático do histórico no CI e deploy público
+- [x] **Fase 3:** gráficos de tendência e registro automático do histórico no CI
+- [ ] **Deploy público:** ativar o GitHub Pages e validar o workflow de exemplo num repositório real
+- [ ] **Fase 4 (opcional):** alertas no Slack/Discord quando a taxa de sucesso cair ou surgir um teste instável
 - [ ] **Fase 4 (opcional):** alerta (Slack/Discord) quando a instabilidade passar de um limite
