@@ -1,0 +1,61 @@
+# Exemplo: como um projeto com testes Playwright alimenta o QA Insights.
+# Copie para .github/workflows/ do SEU projeto de testes e ajuste os passos marcados.
+#
+# O que acontece a cada execução:
+#   1. roda os testes e gera playwright-report.json;
+#   2. grava a execução no branch `qa-history` do próprio repositório;
+#   3. gera o dashboard com todo o histórico e o publica como artefato.
+name: testes-e2e
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 9 * * 1-5' # dias úteis, 09:00 UTC
+
+# Só um registro de histórico por vez; evita corrida de push no branch qa-history.
+concurrency:
+  group: qa-insights-history
+  cancel-in-progress: false
+
+permissions:
+  contents: write # necessário para gravar no branch qa-history
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- AJUSTE: instale e rode os seus testes -------------------------------
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: "Rodar testes (não derruba o job, o histórico precisa registrar as falhas)"
+        run: npx playwright test --reporter=json > playwright-report.json
+        continue-on-error: true
+        id: tests
+      # -------------------------------------------------------------------------
+
+      - name: Baixar o QA Insights
+        run: git clone --depth=1 https://github.com/MatheusLisboa/qa-insights.git "$RUNNER_TEMP/qa-insights"
+
+      - name: Registrar execução no histórico
+        run: bash "$RUNNER_TEMP/qa-insights/scripts/record-history.sh" playwright-report.json
+
+      - name: Gerar o dashboard com o histórico
+        run: |
+          git fetch --depth=50 origin qa-history
+          git worktree add "$RUNNER_TEMP/history" FETCH_HEAD
+          node "$RUNNER_TEMP/qa-insights/src/cli.mjs" --history "$RUNNER_TEMP/history/runs" --out dashboard/index.html --title "QA Insights"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qa-insights-dashboard
+          path: dashboard/
+
+      - name: Falhar o job se os testes falharam
+        if: steps.tests.outcome == 'failure'
+        run: exit 1
