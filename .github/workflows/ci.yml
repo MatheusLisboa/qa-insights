@@ -26,16 +26,20 @@ jobs:
       - name: Rodar testes
         run: npm test
 
-      # O dashboard publicado (docs/index.html) e o relatório de exemplo precisam
-      # ser sempre o resultado do código atual. Se alguém muda src/ e esquece de
-      # regenerar, o CI falha aqui. Só roda em uma versão do Node para evitar
-      # diferenças de formatação entre versões do ICU.
-      - name: Conferir que o dashboard e o exemplo estão atualizados
+      # O dashboard publicado (docs/index.html) e os dados de exemplo (relatório e
+      # histórico) precisam ser sempre o resultado do código atual. Se alguém muda
+      # src/ e esquece de regenerar, o CI falha aqui. Só roda em uma versão do Node
+      # para evitar diferenças de formatação entre versões do ICU.
+      - name: Conferir que o dashboard e os exemplos estão atualizados
         if: matrix.node == 22
         run: |
           npm run sample
           npm run build
-          git diff --exit-code -- data/sample docs/index.html
+          if [ -n "$(git status --porcelain -- data/sample docs)" ]; then
+            echo "::error::Exemplos ou docs/index.html desatualizados. Rode 'npm run sample && npm run build' e faça commit."
+            git status --short -- data/sample docs
+            exit 1
+          fi
 
       - name: Guardar o dashboard gerado
         if: matrix.node == 22
