@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Testes (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Rodar testes
+        run: npm test
+
+      # O dashboard publicado (docs/index.html) e o relatório de exemplo precisam
+      # ser sempre o resultado do código atual. Se alguém muda src/ e esquece de
+      # regenerar, o CI falha aqui. Só roda em uma versão do Node para evitar
+      # diferenças de formatação entre versões do ICU.
+      - name: Conferir que o dashboard e o exemplo estão atualizados
+        if: matrix.node == 22
+        run: |
+          npm run sample
+          npm run build
+          git diff --exit-code -- data/sample docs/index.html
+
+      - name: Guardar o dashboard gerado
+        if: matrix.node == 22
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard
+          path: docs/index.html
