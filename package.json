@@ -1,0 +1,25 @@
+{
+  "name": "qa-insights",
+  "version": "0.1.0",
+  "description": "Transforma relatórios JSON do Playwright em um dashboard de qualidade: taxa de sucesso, testes lentos e instáveis.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "qa-insights": "./src/cli.mjs"
+  },
+  "scripts": {
+    "sample": "node scripts/make-sample.mjs",
+    "build": "node src/cli.mjs data/sample/playwright-report.json --out docs/index.html --title \"QA Insights\" --note \"Dados sintéticos de demonstração: o relatório de exemplo foi gerado por scripts/make-sample.mjs e não vem de um sistema real.\"",
+    "test": "node --test"
+  },
+  "keywords": [
+    "qa",
+    "playwright",
+    "test-reporting",
+    "flaky-tests",
+    "dashboard"
+  ]
+}
