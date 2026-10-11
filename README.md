@@ -154,11 +154,4 @@ docs/               dashboard gerado e imagens de preview
 test/               testes do projeto
 ```
 
-## Roadmap
 
-- [x] **Fase 1:** análise de uma execução e dashboard estático
-- [x] **Fase 2:** histórico de execuções e taxa de instabilidade por teste
-- [x] **Fase 3:** gráficos de tendência e registro automático do histórico no CI
-- [ ] **Deploy público:** ativar o GitHub Pages e validar o workflow de exemplo num repositório real
-- [ ] **Fase 4 (opcional):** alertas no Slack/Discord quando a taxa de sucesso cair ou surgir um teste instável
-- [ ] **Fase 4 (opcional):** alerta (Slack/Discord) quando a instabilidade passar de um limite
